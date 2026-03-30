@@ -193,6 +193,8 @@ int main(int argc, char* argv[])
 	fclose(fo);
 	fo = fopen("modelMutation.fittedF3BetasWithF1s.txt", "w");
 	fclose(fo);
+	fplus = fopen("modelMutation.fittedF3BetasWithF1s.plus.txt", "w");
+	fprintf(fplus, "Variant\tOR\tCI\n");
 
 	for (b = 0; b < 4; ++b) {
 		target = baseNames[b];
@@ -258,14 +260,23 @@ int main(int argc, char* argv[])
 			fclose(fo);
 
 			fo = fopen("modelMutation.fittedF3BetasWithF1s.txt", "a");
-			for (comp = upToOne; comp < l; ++comp)
+			for (comp = upToOne; comp < l; ++comp) {
 				fprintf(fo, "%s\t%f\t%f\t%f\t%f\n", componentNames[comp], 
 					fittedBetas[b][comp], fittedSEs[b][comp], 
 					fittedBetas[b][comp]/fittedSEs[b][comp], fittedLLs[b][comp]);
+				if (componentNames[comp][4] == 'C' || componentNames[comp][4] == 'T') {
+					hasher.convertToSig(sig, componentNames[comp] + 2);
+					fprintf(fplus, "%s\t%.3f\t(%.3f - %.3f)\n", sig,
+						exp(fittedBetas[b][comp]),
+						exp(fittedBetas[b][comp] - 2 * fittedSEs[b][comp]),
+						exp(fittedBetas[b][comp] + 2 * fittedSEs[b][comp]));
+				}
+			}
 			fclose(fo);
 		}
 				
 	}
+	fclose(fplus);
 
 
 	fplus = fopen("modelMutation.F3.plus.txt", "w");

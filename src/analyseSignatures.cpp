@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
 			} while (*++ptr);
 			--nSig;
 			model.init(nSBS, nSig);
-			model.useLinearRegression(MLRNONNEGATIVELNLIKE);
+			model.useLinearRegression(MLRNONNEGATIVELNLIKE); // fit square roots of coefficients, so they have to be positive
 
 
 			sscanf(line, "%*s %[^\n]", buff);
