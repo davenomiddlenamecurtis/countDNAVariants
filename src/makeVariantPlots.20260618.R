@@ -4,6 +4,8 @@ wd="C:/Users/dave/OneDrive/msvc/countDNAVariants/counts"
 ppi=600
 
 library(ggplot2)
+# library(ggpattern) not using this any more
+library(scico)
 library(tidyverse)
 
 options(bitmapType='cairo')
@@ -14,7 +16,7 @@ TrioVars=data.frame(read.table("SBSVariants.txt",header=FALSE,sep="\t"))
 # get variants in desired order
 colnames(TrioVars)=c("Seq","Sig")
 TrioF3Freqs=TrioVars
-TrioMutRawFreqs=data.frame(read.table("modelMutation.F3.toPlot.txt",header=FALSE,sep="\t"))
+TrioMutRawFreqs=data.frame(read.table("modelMutation.F3.toPlot.nonTranscribed.txt",header=FALSE,sep="\t"))
 colnames(TrioMutRawFreqs)=c("Seq","Beta","SE","zed")
 TrioF3Freqs$Beta=TrioMutRawFreqs[match(TrioF3Freqs$Seq,TrioMutRawFreqs$Seq),2]
 TrioF3Freqs$Frequency=exp(TrioF3Freqs$Beta)/(exp(TrioF3Freqs$Beta)+1)
@@ -27,7 +29,7 @@ png("F3.modelMutation.Freqs.png",width=6*ppi, height=12*ppi, res=ppi)
 print(g)
 dev.off()
 
-TrioMutRawBetas=data.frame(read.table("modelMutation.fittedF3BetasWithF1s.txt",header=FALSE,sep="\t"))
+TrioMutRawBetas=data.frame(read.table("modelMutation.fittedF3BetasWithF1s.nonTranscribed.txt",header=FALSE,sep="\t"))
 colnames(TrioMutRawBetas)=c("Seq","Beta","SE","Z","LL")
 TrioMutORs=TrioVars
 TrioMutORs$Beta=TrioMutRawBetas[match(TrioMutORs$Seq,TrioMutRawBetas$Seq),2]
@@ -54,15 +56,35 @@ dev.off()
 Signatures=data.frame(read.table("SBS.counts.0.fitted.txt",header=TRUE,sep="\t"))
 SBSNames=colnames(Signatures)[2:8]
 Signatures=Signatures[,1:(ncol(Signatures)-2)]
-Signatures=pivot_longer(Signatures,!Sig,names_to="SBSnumber",values_to="PredictedCount")
+Signatures=data.frame(pivot_longer(Signatures,!Sig,names_to="SBSnumber",values_to="PredictedCount"))
 Signatures$rn=seq(1,nrow(Signatures))
+pal=scico(length(SBSNames),palette="roma")
 g=ggplot(Signatures,aes(fill=SBSnumber,x=reorder(Sig,-rn),y=PredictedCount)) + theme_bw() +
 	geom_bar(position = "stack", stat = "identity") + coord_flip() +
-	scale_fill_grey(start=0, end=0.8,limits=SBSNames) + # this keeps them in the correct order in the key
+	scale_y_continuous(breaks = seq(0,1.5e5,by =5e4),minor_breaks=NULL,limits=c(0,1.5e5)) +
+	ylab("Predicted count") + labs(fill="") +
+	scale_fill_manual(breaks=SBSNames,values=pal)+
+	theme(axis.text.y=element_text(size=6,hjust=0),axis.title=element_text(size=14),axis.title.y=element_blank())
+png("F3.countsPredictedFromSignatures.png",width=6*ppi, height=12*ppi, res=ppi)
+print(g)
+dev.off()
+
+g=ggplot(Signatures,aes(x=reorder(Sig,-rn),y=PredictedCount)) +
+	geom_bar_pattern(mapping=aes(pattern=SBSnumber,pattern_angle=SBSnumber,pattern_spacing=SBSnumber), position = "stack", stat = "identity",
+    fill            = 'white',
+    colour          = 'black', 
+    pattern_spacing = 0.01, 
+	pattern_density = 0.5,
+    pattern_fill    = 'black',
+    pattern_colour  = 'black'
+	) + 
+	theme_bw() +
+	coord_flip() +
+	# scale_fill_grey(start=0, end=0.8,limits=SBSNames) + # this keeps them in the correct order in the key
 	scale_y_continuous(breaks = seq(0,1.5e5,by =5e4),minor_breaks=NULL,limits=c(0,1.5e5)) +
 	ylab("Predicted count") + labs(fill="") +
 	theme(axis.text.y=element_text(size=6,hjust=0),axis.title=element_text(size=14),axis.title.y=element_blank())
-png("F3.countsPredictedFromSignatures.png",width=6*ppi, height=12*ppi, res=ppi)
+png("F3.countsPredictedFromSignatures.patterns.png",width=6*ppi, height=12*ppi, res=ppi)
 print(g)
 dev.off()
 

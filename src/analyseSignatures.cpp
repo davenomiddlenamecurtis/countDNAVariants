@@ -54,8 +54,10 @@ int main(int argc, char* argv[])
 
 		for (i = 0; i < 4 * 4 * 4 * 4; ++i)
 			forSBS[i] = 0;
+//		sprintf(fn, "AC25PLUS.all.txt");
 		sprintf(fn, "counts.total.ac25.txt");
 		fi = fopen(fn, "r");
+//		fgets(line, 999, fi);
 		while (fgets(line, 999, fi)) {
 			sscanf(line, "%s %d", seq, &c1);
 			if (c1 == 0)
@@ -127,7 +129,7 @@ int main(int argc, char* argv[])
 				for (sig = 0; sig < nSig; ++sig)
 					model.X[i][sig] = varSigs[hash].weight[sig];
 				if (scale == -1) { // first line
-					if (count > 10000) {
+					if (count > 100) {
 						scale = pow(10.0, (int)log10(count));
 					}
 					else {

@@ -10,7 +10,7 @@
 
 int len = 5;
 
-const char* chr = "";
+const char* chr;
 #define MAXAC 200
 int acBinTable[FOURTOTHEMAXLEN*4][MAXAC + 2], acTriosBinTable[256][MAXAC + 2];
 char outputSequence[MAXLEN+2],trioNames[256][5];
@@ -18,47 +18,6 @@ int backgroundCountTable[FOURTOTHEMAXLEN],backgroundTrioCountTable[256];
 
 
 baseHasher hasher;
-
-#define MAXGAPS 200
-
-const char* centromeresFn = "centromeres.hg38.txt";
-const char* gapsFn = "gaps.hg38.txt";
-int centromere[2], gaps[MAXGAPS][2], nGaps;
-int getCentromeresAndGaps(const char* chr)
-{
-	char chrName[20], line[1000], chrom[100], type[100];
-	int st = 300000000, en = 0, s, e, i;
-	FILE* fi;
-	sprintf(chrName, "chr%s", chr);
-	fi = fopen(centromeresFn, "r");
-	while (fgets(line, 999, fi)) {
-		sscanf(line, "%s %d %d", chrom, &s, &e);
-		if (!strcmp(chrom, chrName)) {
-			if (s < st)
-				st = s;
-			if (e > en)
-				en = e;
-		}
-	}
-	fclose(fi);
-	centromere[0] = st;
-	centromere[1] = en;
-	fi = fopen(gapsFn, "r");
-	i = 0;
-	while (fgets(line, 999, fi)) {
-		sscanf(line, "%*s %s %d %d %*s %*s %*s %s", chrom, &s, &e, type);
-		if (!strcmp(chrom, chrName)) {
-			if (strcmp(type, "telomere")) // can add others later
-				continue;
-			gaps[i][0] = s;
-			gaps[i][1] = e;
-			++i;
-		}
-	}
-	fclose(fi);
-	nGaps = i;
-	return nGaps;
-}
 
 int outputBinCounts(FILE* fb) {
 	int f,b[6];
@@ -75,6 +34,8 @@ int outputBinCounts(FILE* fb) {
 						outputSequence[4] = baseNames[b[4]];
 						for (b[5] = 0; b[5] < 4; ++b[5]) {
 							outputSequence[5] = baseNames[b[5]];
+							if (outputSequence[5] == outputSequence[2])
+								continue;
 							s = hasher.hashBases(outputSequence, 6);
 							fprintf(fb, "%s", outputSequence);
 							for (f = 1; f <= MAXAC + 1; ++f)
@@ -95,6 +56,8 @@ int outputLenBinCounts(FILE* fb, int level) {
 	if (level == 0) {
 		for (i = 0; i < 4; ++i) {
 			outputSequence[len - level] = baseNames[i];
+			if (outputSequence[len] == outputSequence[(len-1)/2]) // len must be odd
+				continue;
 			s = hasher.hashBases(outputSequence, len+1);
 			fprintf(fb, "%s", outputSequence);
 			for (f = 1; f <= MAXAC + 1; ++f)
@@ -113,57 +76,26 @@ int outputLenBinCounts(FILE* fb, int level) {
 	return 0;
 }
 
-
-
 int main(int argc, char* argv[])
 {
-	int i,start,AC,b,c,f,count,halfLen;
+	int i,start,end,AC,b,c,f,count,halfLen,allDone,st,en,lastEn;
 	unsigned int hash,bgHash,trioHash;
-	FILE* fi,*fo,*ff;
+	FILE* fi,*fo,*ff,*fb;
 	faSequenceFile fa;
-	char inFile[100],outFileRoot[100],refFile[100],acBinFileRoot[100],compSequence[MAXLEN+2];
-	char* posPtr, * ptr, line[10000], sequence[MAXLEN+2], fn[100],trioSeq[5];
+	char inFile[100],outFileRoot[100],refFile[100],acBinFileRoot[100],compSequence[MAXLEN+2], outputFileRoot[100], * filenameSpec;
+	char* posPtr, * ptr, line[10000], sequence[MAXLEN+2], fn[100],trioSeq[5],bedLine[200],bedChr[10];
 	chr = argv[1];
-	if (argc > 2)
-		len = atoi(argv[2]);
+	fb = fopen(argv[2], "r");
+	filenameSpec = argv[3];
+	sprintf(outputFileRoot, "acBinCounts.%s", filenameSpec);
+	if (argc > 4)
+		len = atoi(argv[4]);
 	if (!strcmp(chr, "all")) {
-		if (len != 5) {
-			// get the background totals here to save rewriting code elsewhere
-			sprintf(fn, "backgroundCounts.%d.total.txt", len);
-			fo = fopen(fn, "w");
-			for (c = 0; c < 23; ++c) {
-				if (c == 22) {
-					sprintf(fn, "backgroundCounts.%d.X.txt", len);
-				}
-				else {
-					sprintf(fn, "backgroundCounts.%d.%d.txt", len, c + 1);
-				}
-				fi = fopen(fn, "r");
-				while (fgets(line, 999, fi)) {
-					sscanf(line, "%s %d", sequence, &count);
-					hash = hasher.hashBases(sequence, len);
-					backgroundCountTable[hash] +=count;
-					if (c == 22) {
-						fprintf(fo, "%s\t%d\n", sequence, backgroundCountTable[hash]);
-					}
-				}
-			}
-			fclose(fo);
-			// will read it in again later
-		}
 		for (c = 0; c < 23; ++c) {
-			if (c == 22) {
-				if (len==5)
-					sprintf(fn, "acBinCounts.X.txt");
-				else
-					sprintf(fn, "acBinCounts.%d.X.txt",len);
-			}
-			else {
-				if (len==5)
-					sprintf(fn, "acBinCounts.%d.txt", c + 1);
-				else
-					sprintf(fn, "acBinCounts.%d.%d.txt",len, c + 1);
-			}
+			if (c == 22)
+				sprintf(fn, "%s.X.txt", outputFileRoot);
+			else
+				sprintf(fn, "%s.%d.txt", outputFileRoot, c + 1);
 			fi = fopen(fn, "r");
 			while (fgets(line, 9999, fi) && sscanf(line, "%s", sequence) == 1) {
 				hash = hasher.hashBases(sequence,len+1);
@@ -178,23 +110,19 @@ int main(int argc, char* argv[])
 				}
 			}
 		}
-		if (len == 5) {
-			fo = fopen("acBinCounts.total.txt", "w");
+		sprintf(fn, "%s.total.txt", outputFileRoot);
+		fo = fopen(fn, "w");
+		fprintf(fo, "Variant");
+		for (f = 1; f <= MAXAC; ++f)
+			fprintf(fo, "\tAC%d", f);
+		fprintf(fo, "\tACrest\n");
+		if (len == 5)		
 			outputBinCounts(fo);
-		}
-		else {
-			sprintf(fn,"acBinCounts.%d.total.txt", len);
-			fo = fopen(fn, "w");
+		else
 			outputLenBinCounts(fo,len);
-		}
 		fclose(fo);
-		if (len == 5) {
-			fi = fopen("backgroundCounts.total.txt", "r");
-		}
-		else {
-			sprintf(fn, "backgroundCounts.%d.total.txt", len);
-			fi = fopen(fn, "r");
-		}
+		sprintf(fn, "backgroundCounts.%s.all.txt", filenameSpec);
+		fi = fopen(fn, "r");
 		while (fgets(line, 999, fi)) {
 			sscanf(line, "%s %d", sequence, &count);
 			hash = hasher.hashBases(sequence, len);
@@ -211,16 +139,15 @@ int main(int argc, char* argv[])
 			}
 		}
 		fclose(fi);
-		if (len == 5) {
-			fi = fopen("acBinCounts.total.txt", "r");
-			fo = fopen("acBinFrequencies.overall.txt", "w");
-		}
-		else {
-			sprintf(fn, "acBinCounts.%d.total.txt", len);
-			fi = fopen(fn, "r");
-			sprintf(fn, "acBinFrequencies.%d.total.txt", len);
-			fo = fopen(fn, "w");
-		}
+		sprintf(fn, "%s.total.txt", outputFileRoot);
+		fi = fopen(fn, "r");
+		fgets(line, 9999, fi);
+		sprintf(fn, "acBinFrequencies.%s.overall.txt", filenameSpec);
+		fo = fopen(fn, "w");
+		fprintf(fo, "Variant");
+		for (f = 1; f <= MAXAC; ++f)
+			fprintf(fo, "\tAC%d", f);
+		fprintf(fo, "\tACrest\n");
 		while (fgets(line, 9999, fi) && sscanf(line, "%s", sequence) == 1) {
 			if (sequence[(len-1)/2] == sequence[len])
 				continue;
@@ -230,9 +157,11 @@ int main(int argc, char* argv[])
 			for (f=1;f<=MAXAC+1;++f)
 				fprintf(fo, "\t%.8f", acBinTable[hash][f] / (float)backgroundCountTable[bgHash]);
 			fprintf(fo, "\n");
-			if (len == 5) {
+			if (len == 5) 
 				sprintf(trioSeq, "%c%c%c%c", sequence[1], sequence[2], sequence[3], sequence[5]);
-				if (trioSeq[1] == 'C' || trioSeq[1] == 'T') {
+			else
+				sprintf(trioSeq, "%c%c%c%c", sequence[(len-1)/2-1], sequence[(len - 1) / 2], sequence[(len - 1) / 2+1], sequence[len]);
+			if (trioSeq[1] == 'C' || trioSeq[1] == 'T') {
 					trioHash = hasher.hashBases(trioSeq, 4);
 					strcpy(trioNames[trioHash], trioSeq);
 				}
@@ -243,12 +172,21 @@ int main(int argc, char* argv[])
 				}
 			for (f = 1; f <= MAXAC + 1; ++f)
 				acTriosBinTable[trioHash][f] += acBinTable[hash][f];
-			}
 		}
 		fclose(fo);
 		if (len == 5) {
-			fo = fopen("acTrioBinCounts.total.txt", "w");
-			ff = fopen("acTrioBinFrequencies.overall.txt", "w");
+			sprintf(fn, "acTrioBinCounts.%s.total.txt", filenameSpec);
+			fo = fopen(fn, "w");
+			fprintf(fo, "Variant");
+			for (f = 1; f <= MAXAC; ++f)
+				fprintf(fo, "\tAC%d", f);
+			fprintf(fo, "\tACrest\n");
+			sprintf(fn, "acTrioBinFrequencies.%s.overall.txt", filenameSpec);
+			ff = fopen(fn, "w");
+			fprintf(ff, "Variant");
+			for (f = 1; f <= MAXAC; ++f)
+				fprintf(ff, "\tAC%d", f);
+			fprintf(ff, "\tACrest\n");
 			for (i = 0; i < 256; ++i) {
 				if (trioNames[i][0] == '\0')
 					continue;
@@ -268,46 +206,89 @@ int main(int argc, char* argv[])
 		}
 		return 0;
 	}
-	getCentromeresAndGaps(chr);
 	sprintf(inFile, "ukb24308_c%s_b0_v1.head.pvar", chr);
-	if (len==5)
-		sprintf(acBinFileRoot, "acBinCounts.%s", chr);
-	else
-		sprintf(acBinFileRoot, "acBinCounts.%d.%s",len, chr);
+		sprintf(acBinFileRoot, "%s.%s",outputFileRoot, chr);
 	sprintf(refFile, "CHR%s.FA", chr);
 	fa.init(refFile);
 	fi = fopen(inFile, "r");
-	fgets(line, 9999, fi);
+	fgets(line, 999, fi);
 	halfLen = (len - 1)/2;
+	sequence[len+1] = '\0';
+	ptr = 0; posPtr = 0;//just to avoid error code from over-anxious compiler
+
 	while (fgets(line, 9999, fi)) {
 		ptr = line;
 		while (!isspace(*ptr++));
 		while (isspace(*ptr++));
-		posPtr = ptr-1;
+		posPtr = ptr - 1;
 		for (i = 0; i < 3; ++i)
 			while (*ptr++ != ':');
-		if (ptr[1]!=':' || !isspace(ptr[3]))
-			continue; // only use SNVs
-		start = atoi(posPtr) - halfLen;
-		if (start <= gaps[0][1]-halfLen || (start >= centromere[0]- halfLen && start <= centromere[1]- halfLen))
-			continue;
-		if (start >= gaps[1][0]- halfLen)
-			break;
-		fa.getSequence(sequence, start, len);
-		if (sequence[0] == 'N')
-			continue;
-		sequence[len] = ptr[2];
-		hash=hasher.hashBases(sequence,len+1);
-		ptr += 7;
-		while (*ptr++ != 'A' || *ptr++ != 'C') // look for AC= string in line
-			;
-		AC = atoi(ptr + 1);
-		if (AC>MAXAC)
-			++acBinTable[hash][MAXAC+1];
-		else
-			++acBinTable[hash][AC];
-// 22 10510001 DRAGEN:chr22:10510001:G:T G T 0 LowGTR AC=2;AN=17868;AF=0.000111932;NS=490541;NS_GT=8934;NS_NOGT=7484;NS_NODATA=474123
+		if (ptr[1] == ':'&& isspace(ptr[3]))
+			break; // only use SNVs
 	}
+	start = atoi(posPtr) - halfLen;
+	allDone = 0;
+	lastEn = 0;
+	while (fgets(bedLine, 199, fb) && sscanf(bedLine + 3, "%s", bedChr) && strcmp(bedChr, chr))
+		;
+	do {
+		sscanf(bedLine, "%*s %d %d", &st, &en);
+		if (st < lastEn)
+			continue; // ignore repeated and overlapping exons
+		lastEn = en;
+		while (start < st + 1) {
+			if (!fgets(line, 999, fi)) {
+				allDone = 1;
+				break;
+			}
+			ptr = line;
+			while (!isspace(*ptr++));
+			while (isspace(*ptr++));
+			posPtr = ptr - 1;
+			for (i = 0; i < 3; ++i)
+				while (*ptr++ != ':');
+			if (ptr[1] != ':' || !isspace(ptr[3]))
+				continue; // only use SNVs
+			start = atoi(posPtr) - halfLen;
+		}
+		if (allDone)
+			break;
+		do {
+			fa.getSequence(sequence, start, len);
+			sequence[len] = ptr[2];
+			hash = hasher.hashBases(sequence, len + 1);
+
+			if (sequence[2] == sequence[len] || hash == 0)
+				printf("Problem with sequence %s at %d, hash = %d\n", sequence, start, hash);
+			
+			ptr += 7;
+			// 22 10510001 DRAGEN:chr22:10510001:G:T G T 0 LowGTR AC=2;AN=17868;AF=0.000111932;NS=490541;NS_GT=8934;NS_NOGT=7484;NS_NODATA=474123
+			while (*ptr++ != 'A' || *ptr++ != 'C') // look for AC= string in line
+				;
+			AC = atoi(ptr + 1);
+			if (AC > MAXAC)
+				++acBinTable[hash][MAXAC + 1];
+			else
+				++acBinTable[hash][AC];
+			do {
+				if (!fgets(line, 999, fi)) {
+					allDone = 1;
+					break;
+				}
+				ptr = line;
+				while (!isspace(*ptr++));
+				while (isspace(*ptr++));
+				posPtr = ptr - 1;
+				for (i = 0; i < 3; ++i)
+					while (*ptr++ != ':');
+			}
+			while (ptr[1] != ':' || !isspace(ptr[3])); // only use SNVs
+			start = atoi(posPtr) - halfLen;
+			end = start+len-1;
+		} while (end <= en && !allDone);
+
+	} while (fgets(bedLine, 199, fb) && sscanf(bedLine + 3, "%s", bedChr) && !strcmp(bedChr, chr) && ! allDone);
+	fclose(fb);
 	fclose(fi);
 	sprintf(fn, "%s.txt", acBinFileRoot);
 	fo = fopen(fn, "w");

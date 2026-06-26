@@ -16,6 +16,16 @@ baseHasher::baseHasher() {
 	}
 }
 
+void baseHasher::unhashBases(char* out, unsigned int hash, int len) {
+	unsigned int bits;
+	while (len > 0) {
+		--len;
+		bits = 3 | hash;
+		out[len] = baseNames[bits];
+		hash <<= 2;
+	}
+}
+
 int baseHasher::getVariantComplement(char* out, const char* in) {
 	int i;
 	sprintf(out, "_____%c", bpTable[in[5]]);
@@ -29,6 +39,7 @@ int baseHasher::getComplement(char* out, const char* in, int len) {
 	int i;
 	for (i = 0; i < len; ++i)
 		out[len -1 - i] = bpTable[in[i]];
+	out[len] = '\0';
 	return 1;
 }
 
@@ -38,10 +49,9 @@ unsigned int baseHasher::hashBases(const char* in, int len)
 	int i;
 	for (i = 0; i < len; ++i)
 	{
-		rv |= table[*in++];
 		rv <<= 2;
+		rv |= table[*in++];
 	}
-	rv >>= 2;
 	return rv;
 }
 // aim is to minimise array operations to maximise speed

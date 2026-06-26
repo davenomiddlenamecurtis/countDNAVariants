@@ -96,10 +96,33 @@ int writeRFiles(glfModel* m, char* root)
 void setStartingBetasFromCounts(glfModel* m)
 {
 	float *N, *sigmaX,p,intOdds,SEp;
-	int b, r;
-	assert((sigmaX = (float*)calloc(m->nCol, sizeof(float))) != 0);
-	assert((N = (float*)calloc(m->nCol, sizeof(float))) != 0);
+	int b, r,allBsZero;
+	assert((sigmaX = (float*)calloc(m->nCol+1, sizeof(float))) != 0);
+	assert((N = (float*)calloc(m->nCol + 1, sizeof(float))) != 0);
 
+	if (m->toUse[m->nCol] && m->toFit[m->nCol]) {
+		for (r = 0; r < m->nRow; ++r) {
+			allBsZero = 1;
+			for (b = 0; b < m->nCol; ++b)
+				if (m->toUse[b]) {
+					if (m->X[r][b] != 0) {
+						allBsZero = 0;
+						break;
+					}
+				}
+			if (allBsZero) { // for intercept
+				sigmaX[m->nCol] += m->F[r] * m->Y[r]; // Y is a probability
+				N[m->nCol] += m->F[r];
+			}
+		}
+		if (sigmaX[m->nCol] && (sigmaX[m->nCol] != N[m->nCol])) { // at least some successes and failures at the intercept
+			p = sigmaX[m->nCol] / N[m->nCol];
+			m->beta[m->nCol] = log(p / (1 - p));
+		}
+		else {
+			m->beta[m->nCol] = 0;
+		}
+	}
 	for (r = 0; r < m->nRow; ++r) {
 		for (b = 0; b < m->nCol; ++b) 
 			if (m->toFit[b]) {
@@ -114,8 +137,8 @@ void setStartingBetasFromCounts(glfModel* m)
 			if (m->toUse[m->nCol]) {
 				m->beta[b] -= m->beta[m->nCol]; // adjust for intercept odds
 				// use formula from here: https://www.ncbi.nlm.nih.gov/books/NBK431098/
-				// SE(beta)=sqrt(1/a+1/b!1/c*1/d)
-				// as intercept has been provided, assume a and b are very large
+				// SE(beta)=sqrt(1/a+1/b + 1/c + 1/d)
+				// assume a and b are very large
 				m->SE[b] = sqrt(1 / sigmaX[b] + 1 / (N[b] - sigmaX[b]));
 			}
 			else {

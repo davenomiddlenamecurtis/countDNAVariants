@@ -1,0 +1,34 @@
+Counts of reference backgroundsequences and variants
+
+The notation for a variant consists of the five reference bases followed by the alternate base which substitutes the central base.
+
+So CGTCGA means CG[T>A]CG.
+
+Background and variant counts and frequencies for the genome excluding centromeres and telomeres:
+
+backgroundCounts.total.txt
+acBinCounts.total.txt
+acBinFrequencies.overall.txt
+
+Background and AC25 variant counts divided according to whether they are in non-transcribed or transcribed regions:
+
+AC25.counts.transcripts.minus.coding.total.txt
+AC25.counts.transcripts.minus.nonCoding.total.txt
+AC25.counts.transcripts.notTranscribed.total.txt
+AC25.counts.transcripts.plus.coding.total.txt
+AC25.counts.transcripts.plus.nonCoding.total.txt
+
+backgroundCounts.transcripts.minus.coding.all.txt
+backgroundCounts.transcripts.minus.nonCoding.all.txt
+backgroundCounts.transcripts.notTranscribed.all.txt
+backgroundCounts.transcripts.plus.coding.all.txt
+backgroundCounts.transcripts.plus.nonCoding.all.txt
+
+Transcripts of protein coding genes are referred to as coding and RNA genes as nonCoding.
+Counts are separated for genes coded on plus and minus strands.
+All backgrounds and variants are described as being on the plus strand. 
+
+Lists of complementary pairs of backgrounds and variants to aid data manipulation:
+
+backgroundCompPairs.txt
+variantCompPairs.txt

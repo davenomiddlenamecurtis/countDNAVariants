@@ -126,6 +126,7 @@ int getPredictedFreqs(FILE* flog, const char* compBetaFileName, const char* obse
 	fclose(fi);
 	nComps = i;
 	fi = fopen(observedFreqsName, "r");
+	fgets(line, 999, fi);
 	fo = fopen(outputFileName, "w");
 	i = 0;
 	while (fgets(line, 999, fi)) {
